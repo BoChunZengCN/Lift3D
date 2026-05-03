@@ -1,7 +1,7 @@
 export const API_CONFIG = {
   hunyuan: {
-    secretId: import.meta.env.VITE_TENCENT_SECRET_ID || '',
-    secretKey: import.meta.env.VITE_TENCENT_SECRET_KEY || '',
+    secretId: 'YOUR_SECRET_ID_HERE',
+    secretKey: 'YOUR_SECRET_KEY_HERE',
     region: 'ap-guangzhou',
     modelVersion: 'HY-3D-3.1',
     textureMode: 'PBR',
@@ -24,16 +24,4 @@ export const API_CONFIG = {
     key: '',
     timeout: 120000
   }
-};
-
-export const APP_CONFIG = {
-  maxFileSize: 10 * 1024 * 1024,
-  allowedImageTypes: ['image/jpeg', 'image/png', 'image/webp'],
-  minImageDimension: 512,
-  thumbnailSize: 200
-};
-
-export const STORAGE_CONFIG = {
-  dbName: 'Lift3D_DB',
-  dbVersion: 1
 };
