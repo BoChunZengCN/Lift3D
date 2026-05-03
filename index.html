@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LIFT3D — 工业零件三维重建系统</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+
+<canvas id="canvas-bg"></canvas>
+
+<div class="shell">
+
+<header>
+  <div class="logo-block">
+    <div class="logo">LIFT3D</div>
+    <div class="logo-sub">工业零件三维重建系统 v1.0</div>
+  </div>
+  <div class="sys-right">
+    <div class="corner-badges">
+      <span class="cbadge" id="clock">00:00:00</span>
+      <span class="cbadge">系统在线</span>
+    </div>
+    <div class="status-dot"></div>
+    <div class="status-txt">GPU 就绪</div>
+  </div>
+</header>
+
+<!-- nav tabs -->
+<nav class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('photo')"><span class="tab-dot"></span>多视角照片重建</button>
+  <button class="nav-tab" onclick="switchTab('cad')"><span class="tab-dot"></span>图纸自动建模</button>
+  <button class="nav-tab" onclick="switchTab('space')"><span class="tab-dot"></span>个人空间</button>
+</nav>
+
+<!-- ══ TAB: 多视角照片重建 ══ -->
+<div class="tab-panel active" id="tab-photo">
+
+<!-- 01 -->
+<div class="sec-head" style="animation-delay:.1s">
+  <div class="sec-num">01</div>
+  <div class="sec-title">图像采集</div>
+  <div class="sec-line"></div>
+</div>
+
+<div class="panel" id="drop-zone">
+  <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" multiple>
+  <div class="hex-ring">
+    <svg viewBox="0 0 72 72" fill="none" class="rotate-ring">
+      <polygon points="36,3 67,20 67,52 36,69 5,52 5,20" stroke="rgba(0,229,255,.28)" stroke-width=".8" stroke-dasharray="4 3"/>
+      <polygon points="36,10 61,24 61,48 36,62 11,48 11,24" stroke="rgba(0,229,255,.12)" stroke-width=".5"/>
+      <circle cx="36" cy="3" r="2" fill="rgba(0,229,255,.7)"/>
+      <circle cx="67" cy="20" r="1.5" fill="rgba(0,229,255,.4)"/>
+      <circle cx="67" cy="52" r="1.5" fill="rgba(0,229,255,.4)"/>
+      <circle cx="36" cy="69" r="2" fill="rgba(0,229,255,.7)"/>
+      <circle cx="5" cy="52" r="1.5" fill="rgba(0,229,255,.4)"/>
+      <circle cx="5" cy="20" r="1.5" fill="rgba(0,229,255,.4)"/>
+    </svg>
+    <div class="hex-inner">
+      <svg class="hex-icon" viewBox="0 0 24 24"><path d="M12 16V8m0 0-3 3m3-3 3 3"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+    </div>
+  </div>
+  <div class="drop-title">拖拽 / 点击上传</div>
+  <div class="drop-meta">JPG · PNG · WEBP &nbsp;|&nbsp; <strong>至少 10 张</strong> · 最多 200 张</div>
+  <div id="drop-count"></div>
+</div>
+
+<div id="grid-section">
+  <div class="grid-header">
+    <span class="grid-count" id="grid-count"></span>
+    <button class="btn-ghost" onclick="clearAll()">清空全部</button>
+  </div>
+  <div id="thumb-grid"></div>
+</div>
+
+<!-- 02 -->
+<div class="sec-head" style="margin-top:44px;animation-delay:.2s">
+  <div class="sec-num">02</div>
+  <div class="sec-title">重建参数</div>
+  <div class="sec-line"></div>
+</div>
+
+<div class="panel" style="padding:20px">
+  <div class="params-grid">
+    <div>
+      <div class="field-label">重建质量</div>
+      <div class="radio-row">
+        <input type="radio" name="quality" id="q-low" value="low">
+        <label for="q-low">快速</label>
+        <input type="radio" name="quality" id="q-med" value="medium" checked>
+        <label for="q-med">均衡</label>
+        <input type="radio" name="quality" id="q-high" value="high">
+        <label for="q-high">极致</label>
+      </div>
+    </div>
+    <div>
+      <div class="field-label">输出格式</div>
+      <div class="check-row">
+        <input type="checkbox" id="fmt-glb" value="glb" checked>
+        <label for="fmt-glb">GLB</label>
+        <input type="checkbox" id="fmt-obj" value="obj" checked>
+        <label for="fmt-obj">OBJ</label>
+        <input type="checkbox" id="fmt-stl" value="stl">
+        <label for="fmt-stl">STL</label>
+      </div>
+    </div>
+  </div>
+  <div class="readout" id="readout">
+    <div class="readout-row"><span>特征点数量</span><span class="readout-val" id="rd-feat">8192</span></div>
+    <div class="readout-row"><span>预计耗时</span><span class="readout-val" id="rd-dur">5 – 15 分钟</span></div>
+    <div class="readout-row"><span>匹配精度</span><span class="readout-val" id="rd-depth">中等 / Patch-Match 立体</span></div>
+  </div>
+</div>
+
+<!-- 03 -->
+<div class="sec-head" style="margin-top:44px;animation-delay:.3s">
+  <div class="sec-num">03</div>
+  <div class="sec-title">启动重建</div>
+  <div class="sec-line"></div>
+</div>
+
+<div class="submit-wrap">
+  <button class="btn-submit" id="btn-submit" disabled onclick="submitJob()">
+    <span>执行三维重建</span>
+  </button>
+  <div class="submit-meta">
+    <div>状态 &nbsp;<span class="val" id="sm-status">等待输入</span></div>
+    <div>图片数 &nbsp;<span class="val" id="sm-frames">0 / 至少10张</span></div>
+  </div>
+</div>
+<div class="err-bar" id="err-bar"></div>
+
+<!-- progress -->
+<div id="prog-panel">
+  <div class="panel">
+    <div class="prog-header">
+      <div class="prog-title">重建进行中</div>
+      <div class="prog-jobid" id="job-id-label"></div>
+    </div>
+    <div class="prog-hero">
+      <div class="pct-display"><span id="pct-num">0</span><span class="pct-unit">%</span></div>
+      <div class="stages-list" id="stages-list">
+        <div class="stage-row" data-stage="validating">
+          <div class="stage-pip"></div><span class="stage-name">图像质量检测</span><span class="stage-val">--</span>
+        </div>
+        <div class="stage-row" data-stage="sfm">
+          <div class="stage-pip"></div><span class="stage-name">SfM 相机位姿估计</span><span class="stage-val">--</span>
+        </div>
+        <div class="stage-row" data-stage="mvs">
+          <div class="stage-pip"></div><span class="stage-name">MVS 密集点云重建</span><span class="stage-val">--</span>
+        </div>
+        <div class="stage-row" data-stage="postprocessing">
+          <div class="stage-pip"></div><span class="stage-name">网格合成 &amp; 格式导出</span><span class="stage-val">--</span>
+        </div>
+      </div>
+    </div>
+    <div class="prog-bar-wrap">
+      <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-fill"></div></div>
+    </div>
+    <div class="prog-msg" id="prog-msg"></div>
+  </div>
+</div>
+
+<!-- result -->
+<div id="result-panel">
+  <div class="panel">
+    <div class="result-head">
+      <svg class="result-head-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      <div class="result-head-txt">重建完成</div>
+      <div class="result-head-sub" id="result-expire"></div>
+    </div>
+    <div class="result-content">
+      <div class="viewer-wrapper" id="viewer-wrapper">
+        <div id="viewer-container"></div>
+        <div class="viewer-controls">
+          <button class="viewer-btn" id="btn-rotate" title="旋转视图">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M4 20 21 4"/><polyline points="17 20 23 20 23 14"/></svg>
+          </button>
+          <button class="viewer-btn" id="btn-zoom-in" title="放大">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="viewer-btn" id="btn-zoom-out" title="缩小">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="viewer-btn" id="btn-reset" title="重置视角">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="result-files" id="result-files"></div>
+    </div>
+    <div style="padding:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-reset" onclick="saveToCabinet('photo')" style="border-color:var(--cyan);color:var(--cyan)">保存到个人空间</button>
+      <button class="btn-reset" onclick="resetAll()">重新上传</button>
+    </div>
+  </div>
+</div>
+
+<!-- tips -->
+<div class="tips">
+  <div class="sec-head" style="margin-bottom:20px">
+    <div class="sec-num">参考</div>
+    <div class="sec-title">拍摄规范</div>
+    <div class="sec-line"></div>
+  </div>
+  <div class="tips-grid">
+    <div class="tip">
+      <div class="tip-idx">覆盖范围</div>
+      <h4>360° 环绕拍摄</h4>
+      <p>围绕目标等间距拍摄，每 10–15° 一帧，相邻帧重叠率 &gt; 60%。推荐多层高度覆盖。</p>
+    </div>
+    <div class="tip">
+      <div class="tip-idx">光线条件</div>
+      <h4>漫射均匀光源</h4>
+      <p>避免强光直射产生高光和硬阴影。阴天或柔光箱环境最佳，保持光源稳定不变化。</p>
+    </div>
+    <div class="tip">
+      <div class="tip-idx">表面纹理</div>
+      <h4>纹理丰富度</h4>
+      <p>纯色/镜面/透明材质难以匹配。必要时可在表面临时贴标记点辅助特征提取。</p>
+    </div>
+  </div>
+</div>
+
+</div><!-- /tab-photo -->
+
+<!-- ══ TAB: 图纸自动建模 ══ -->
+<div class="tab-panel" id="tab-cad">
+
+  <div class="sec-head">
+    <div class="sec-num">A</div>
+    <div class="sec-title">图纸上传</div>
+    <div class="sec-line"></div>
+  </div>
+
+  <div class="panel" style="padding:0;overflow:hidden">
+    <div class="bp-grid" style="padding:20px;gap:16px">
+      <div class="bp-drop" id="bp-drop">
+        <input type="file" id="bp-file-input" accept=".dwg,.dxf,.pdf,.png,.jpg,.jpeg,.svg">
+        <div class="bp-drop-label">支持格式</div>
+        <div class="bp-drop-title">拖拽或点击上传图纸</div>
+        <div class="bp-drop-meta">DWG · DXF · PDF · PNG · SVG</div>
+      </div>
+      <div class="bp-preview" id="bp-preview">
+        <div class="bp-preview-empty" id="bp-preview-empty">
+          <div style="margin-bottom:8px;font-size:22px;opacity:.3">⬡</div>
+          上传后在此预览
+        </div>
+      </div>
+    </div>
+
+    <div class="bp-params">
+      <div class="sec-head" style="margin-bottom:14px">
+        <div class="sec-num">B</div>
+        <div class="sec-title">建模参数</div>
+        <div class="sec-line"></div>
+      </div>
+
+      <div class="bp-params-row">
+        <div>
+          <div class="field-label">图纸类型</div>
+          <select class="bp-select" id="bp-type" onchange="updateBpReadout()">
+            <option value="ortho">正交三视图（工程图）</option>
+            <option value="floor">建筑平面图</option>
+            <option value="isometric">等轴测图</option>
+            <option value="sketch">草图 / 手绘</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">输出格式</div>
+          <select class="bp-select" id="bp-fmt">
+            <option value="glb">GLB（Web 渲染）</option>
+            <option value="obj">OBJ（通用建模）</option>
+            <option value="stl">STL（3D 打印）</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="bp-params-row">
+        <div>
+          <div class="field-label">建模深度</div>
+          <select class="bp-select" id="bp-depth" onchange="updateBpReadout()">
+            <option value="shell">外壳（薄壳模型）</option>
+            <option value="solid" selected>实体（推拉建模）</option>
+            <option value="detail">精细（含倒角细节）</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">默认拉伸高度</div>
+          <select class="bp-select" id="bp-height">
+            <option value="auto">自动推断</option>
+            <option value="1">1 单位</option>
+            <option value="3" selected>3 单位</option>
+            <option value="5">5 单位</option>
+            <option value="10">10 单位</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="bp-readout" id="bp-readout">
+        <div style="display:flex;justify-content:space-between"><span>处理流程</span><span class="bp-readout-val" id="bpr-flow">OCR 线稿识别 → 语义解析 → 推拉建模</span></div>
+        <div style="display:flex;justify-content:space-between"><span>预计耗时</span><span class="bp-readout-val" id="bpr-dur">30 – 90 秒</span></div>
+        <div style="display:flex;justify-content:space-between"><span>AI 辅助</span><span class="bp-readout-val">Claude Vision 语义理解</span></div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <button class="btn-bp-submit" id="btn-bp-submit" disabled onclick="submitBp()">
+          <span>执行图纸建模</span>
+        </button>
+        <div class="submit-meta" id="bp-meta">
+          <div>状态 &nbsp;<span class="val" id="bp-status">等待上传图纸</span></div>
+          <div>文件 &nbsp;<span class="val" id="bp-fname">—</span></div>
+        </div>
+      </div>
+      <div class="err-bar" id="bp-err-bar"></div>
+    </div>
+  </div>
+
+  <!-- 建模进度 -->
+  <div class="bp-prog-panel panel" id="bp-prog-panel" style="margin-top:24px">
+    <div class="prog-header">
+      <div class="prog-title" style="color:var(--amber)">图纸建模进行中</div>
+      <div class="prog-jobid" id="bp-job-label"></div>
+    </div>
+    <div class="prog-hero">
+      <div class="pct-display" style="color:var(--amber);text-shadow:0 0 30px rgba(255,179,0,.35)">
+        <span id="bp-pct">0</span><span class="pct-unit" style="color:var(--amber)">%</span>
+      </div>
+      <div class="bp-stages" style="padding:0;flex:1">
+        <div class="bp-stage" data-bpstage="ocr">
+          <div class="stage-pip"></div><span class="bp-stage-name">OCR 线稿提取</span><span class="bp-stage-val">--</span>
+        </div>
+        <div class="bp-stage" data-bpstage="semantic">
+          <div class="stage-pip"></div><span class="bp-stage-name">AI 语义理解</span><span class="bp-stage-val">--</span>
+        </div>
+        <div class="bp-stage" data-bpstage="model">
+          <div class="stage-pip"></div><span class="bp-stage-name">三维推拉建模</span><span class="bp-stage-val">--</span>
+        </div>
+        <div class="bp-stage" data-bpstage="export">
+          <div class="stage-pip"></div><span class="bp-stage-name">网格优化 &amp; 导出</span><span class="bp-stage-val">--</span>
+        </div>
+      </div>
+    </div>
+    <div class="prog-bar-wrap">
+      <div class="prog-bar-bg">
+        <div class="prog-bar-fill" id="bp-fill" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></div>
+      </div>
+    </div>
+    <div class="prog-msg" id="bp-msg"></div>
+  </div>
+
+  <!-- 建模结果 -->
+  <div id="bp-result-panel" style="display:none;margin-top:24px;">
+    <div class="panel">
+      <div class="result-head" style="background:rgba(255,179,0,.05);border-bottom-color:rgba(255,179,0,.2)">
+        <svg class="result-head-icon" style="stroke:var(--amber)" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div class="result-head-txt" style="color:var(--amber)">建模完成</div>
+        <div class="result-head-sub" id="bp-expire"></div>
+      </div>
+      <div class="result-content">
+        <div class="viewer-wrapper" id="bp-viewer-wrapper">
+          <div id="bp-viewer-container"></div>
+          <div class="viewer-controls">
+            <button class="viewer-btn" id="bp-btn-rotate" title="旋转视图">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M4 20 21 4"/><polyline points="17 20 23 20 23 14"/></svg>
+            </button>
+            <button class="viewer-btn" id="bp-btn-zoom-in" title="放大">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button class="viewer-btn" id="bp-btn-zoom-out" title="缩小">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button class="viewer-btn" id="bp-btn-reset" title="重置视角">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="result-files" id="bp-result-files"></div>
+      </div>
+      <div style="padding:16px;display:flex;gap:10px">
+        <button class="btn-reset" onclick="saveToCabinet('cad')" style="border-color:var(--cyan);color:var(--cyan)">保存到个人空间</button>
+        <button class="btn-reset" onclick="resetBp()">重新上传</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-cad -->
+
+<!-- ══ TAB: 个人空间 ══ -->
+<div class="tab-panel" id="tab-space">
+
+  <div class="sec-head">
+    <div class="sec-num">⬡</div>
+    <div class="sec-title">我的模型库</div>
+    <div class="sec-line"></div>
+  </div>
+
+  <div class="space-toolbar">
+    <input class="space-search" id="space-search" placeholder="搜索模型名称..." oninput="renderSpace()">
+    <div class="space-filter">
+      <button class="filter-btn active" data-filter="all" onclick="filterSpace('all')">全部</button>
+      <button class="filter-btn" data-filter="photo" onclick="filterSpace('photo')">照片重建</button>
+      <button class="filter-btn" data-filter="cad" onclick="filterSpace('cad')">图纸建模</button>
+    </div>
+    <select class="space-sort" id="space-sort" onchange="renderSpace()">
+      <option value="date">按时间</option>
+      <option value="name">按名称</option>
+      <option value="size">按大小</option>
+    </select>
+  </div>
+
+  <div class="model-grid" id="model-grid"></div>
+  <div class="space-empty" id="space-empty" style="display:none">
+    <div class="space-empty-icon">⬡</div>
+    <div>暂无模型</div>
+    <div style="margin-top:6px;font-size:10px">完成重建后点击「保存到个人空间」</div>
+  </div>
+
+  <div class="space-stats" id="space-stats"></div>
+
+</div><!-- /tab-space -->
+
+</div>
+
+<!-- model detail drawer -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer(event)">
+  <div class="drawer" id="drawer" onclick="event.stopPropagation()">
+    <div class="drawer-head">
+      <div class="drawer-title" id="drawer-title">模型详情</div>
+      <button class="drawer-close" onclick="closeDrawerDirect()">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <div class="drawer-thumb" id="drawer-thumb-content">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <div class="drawer-meta" id="drawer-meta"></div>
+      <div class="field-label" style="margin-bottom:10px">可下载文件</div>
+      <div class="drawer-files" id="drawer-files"></div>
+      <div class="drawer-actions">
+        <button class="btn-full" onclick="renameModel()">重命名</button>
+        <button class="btn-full danger" onclick="deleteModel()">删除模型</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>
